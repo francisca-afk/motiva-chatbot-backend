@@ -23,12 +23,23 @@ connectDB();
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = [
+  process.env.DASHBOARD_URL,
+  process.env.WIDGET_URL,
+];
+// Middleware
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"]
+  }
 });
 
-// Middleware
-app.use(cors());
 app.use(bodyParser.json());
 app.use(express.json());
 

@@ -1,0 +1,52 @@
+{
+  "name": "chatbot-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "@langchain/community": "^1.0.0",
+    "@langchain/core": "^1.0.2",
+    "@langchain/openai": "^1.0.0",
+    "@langchain/textsplitters": "^1.0.0",
+    "@sendgrid/mail": "^8.1.6",
+    "axios": "^1.13.1",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.18",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsdom": "^27.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.11.0",
+    "ml-kmeans": "^6.0.0",
+    "mongoose": "^8.19.2",
+    "multer": "^2.0.2",
+    "natural": "^8.1.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.10",
+    "nodemailer-sendgrid-transport": "^0.2.0",
+    "openai": "^6.7.0",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^5.4.296",
+    "resend": "^6.3.0",
+    "sentiment": "^5.0.2",
+    "socket.io": "^4.8.1",
+    "swagger": "^0.7.5",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "textract": "^2.5.0"
+  }
+}

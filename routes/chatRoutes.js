@@ -8,7 +8,8 @@ const { generateChatResponse,
         getConversationSummary, 
         deleteSession, 
         takeOverSession,
-        countMoodsBySession } = require('../controllers/chatController')
+        countMoodsBySession,
+        generateSummaryConversation } = require('../controllers/chatController')
 
 const auth = require('../middleware/auth');
 
@@ -30,5 +31,7 @@ router.delete('/:sessionId/delete',auth, deleteSession)
 router.post('/session/:sessionId/takeover', auth, takeOverSession)
 
 router.get('/session/:sessionId/moods',auth, countMoodsBySession)
+
+router.get('/session/:sessionId/generate-summary',auth, generateSummaryConversation)
 
 module.exports = router;

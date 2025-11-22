@@ -243,6 +243,34 @@ exports.getSessionHistory = async (req, res) => {
   }
 };
 
+exports.generateSummaryConversation = async (req, res) => {
+  try {
+    console.log('Generating summary conversation...');
+    const { sessionId } = req.params;
+    const session = await ChatSession.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+    const messages = await ChatMessage.find({ session: sessionId })
+      .sort({ timestamp: 1 })
+      .select('role content mood timestamp metadata');
+
+    const summary = await summarizeConversation(messages);
+    console.log('Summary:', summary);
+    session.summary = {
+      businessInsights: summary.businessInsights,
+      recommendations: summary.recommendations,
+      summary: summary.summary
+    };
+    await session.save();
+    res.status(200).json({ message: 'Summary conversation generated successfully', data: session.summary });
+  }
+  catch (error) {
+    console.error('❌ Error generating summary conversation:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+}
+
 /**
  * Email the summary of a conversation to a business team
  */

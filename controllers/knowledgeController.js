@@ -2,6 +2,8 @@ const KnowledgeSource = require('../models/KnowledgeSource');
 const fs = require('fs');
 const path = require('path');
 const { loadDocument, splitDocuments, createVectorStore, clearVectorStoreCache } = require('../services/ragService');
+const { validateFile } = require('../validators/knowledgeValidator');
+const { uploadToFirebase, deleteFromFirebase } = require('../services/firestoreService');
 
 exports.uploadKnowledgeFile = async (req, res) => {
   try {
@@ -9,37 +11,43 @@ exports.uploadKnowledgeFile = async (req, res) => {
     const file = req.file;
 
     if (!file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+      return res.status(400).json({ message: "No file uploaded" });
     }
-    console.log(req.user, 'userID uploadKnowledgeFile from controller');
-    // Save the file metadata
+
+    validateFile(file)
+
+    const { url, fileName } = await uploadToFirebase(file, businessId);
+
     const knowledge = new KnowledgeSource({
       businessId,
       title: file.originalname,
       description: '',
       sourceType: 'document',
-      fileUrl: path.join('uploads', file.filename),
-      fileName: file.filename,
+      fileUrl: url,
+      fileName,
       metadata: {
         mimetype: file.mimetype,
         size: file.size,
-        uploadedBy: req.user?.userId || 'system',
-        originalName: file.originalname
+        originalName: file.originalname,
+        uploadedBy: req.user?.userId || "system"
       },
-      tags: ['unprocessed']
+      tags: ["unprocessed"]
     });
 
     await knowledge.save();
 
-    res.status(201).json({
-      message: 'File uploaded successfully',
+    return res.status(201).json({
+      message: "File uploaded successfully",
       data: knowledge
     });
+
   } catch (error) {
-    console.error('Error uploading file:', error);
-    res.status(500).json({ message: 'Error uploading file', error });
+    console.error("Error uploading file:", error);
+    return res
+      .status(500)
+      .json({ message: "Error uploading file", error: error.message });
   }
-};
+}
 
 exports.processKnowledgeFile = async (req, res) => {
   try {
@@ -52,15 +60,10 @@ exports.processKnowledgeFile = async (req, res) => {
     }
 
     // verify that the file exists
-    const filePath = path.resolve(knowledge.fileUrl);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: "File not found on disk" });
-    }
-
-    console.log(`📄 Processing file: ${filePath}`);
+    const fileUrl = knowledge.fileUrl;
 
     // load and split the document
-    const docs = await loadDocument(filePath);
+    const docs = await loadDocument(fileUrl);
     const splitDocs = await splitDocuments(docs);
 
     // create embeddings and vector store in memory
@@ -83,10 +86,8 @@ exports.processKnowledgeFile = async (req, res) => {
 
     await knowledge.save();
 
-    // Limpiar caché del vector store para que se recargue con el nuevo documento
+    // clear vector store cache to reload with the new document
     clearVectorStoreCache(knowledge.businessId.toString());
-
-    console.log(`✅ Processed ${splitDocs.length} chunks for ${knowledge.title}`);
 
     res.status(200).json({
       message: "File processed successfully",
@@ -109,31 +110,56 @@ exports.processKnowledgeFile = async (req, res) => {
 exports.getKnowledgeFiles = async (req, res) => {
   try {
     const { businessId } = req.params;
-    console.log(businessId, 'businessId getKnowledgeFiles from controller');
 
-    const knowledgeFiles = await KnowledgeSource.find({ businessId });
-    if(!knowledgeFiles) {
-      console.log('No knowledge files found');
-      return res.status(204).json({ message: 'No knowledge files found', data: [] });
+    const knowledgeFiles = await KnowledgeSource.find({ businessId }).lean();
+
+    if (!knowledgeFiles || knowledgeFiles.length === 0) {
+      return res.status(200).json({
+        message: "No knowledge files found",
+        data: []
+      });
     }
-    res.status(200).json({ message: 'Knowledge files retrieved successfully', data: knowledgeFiles });
+
+    
+
+    return res.status(200).json({
+      message: "Knowledge files retrieved successfully",
+      data: knowledgeFiles,
+    });
+
   } catch (error) {
-    console.error('Error getting knowledge files:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error getting knowledge files:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
 
 exports.deleteKnowledgeFile = async (req, res) => {
   try {
     const { knowledgeId } = req.params;
+
     const knowledge = await KnowledgeSource.findById(knowledgeId);
-    if(!knowledge) {
-      return res.status(404).json({ message: 'Knowledge not found' });
+
+    if (!knowledge) {
+      return res.status(404).json({ message: "Knowledge not found" });
     }
+
+    await deleteFromFirebase(knowledge.fileUrl);
+
     await knowledge.deleteOne();
-    res.status(200).json({ message: 'Knowledge file deleted successfully' });
+
+    return res.status(200).json({
+      message: "Knowledge file deleted successfully"
+    });
+
   } catch (error) {
-    console.error('Error deleting knowledge file:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error deleting knowledge file:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };

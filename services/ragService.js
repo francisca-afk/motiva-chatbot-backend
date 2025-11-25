@@ -1,11 +1,13 @@
-// ragService.js
-const { PDFLoader } = require("@langchain/community/document_loaders/fs/pdf");
 const { RecursiveCharacterTextSplitter } = require("@langchain/textsplitters");
 const { OpenAIEmbeddings, ChatOpenAI } = require("@langchain/openai");
 const { SimpleMemoryVectorStore } = require("./inMemoryVectorStore");
-const KnowledgeSource = require("../models/KnowledgeSource");
+const { PDFLoader } = require("@langchain/community/document_loaders/fs/pdf");
+const { DocxLoader } = require("@langchain/community/document_loaders/fs/docx");
+const { TextLoader } = require("@langchain/classic/document_loaders/fs/text");
 const path = require("path");
 const fs = require("fs");
+const axios = require("axios");
+const os = require("os");
 
 const openAIApiKey = process.env.OPENAI_API_KEY;
 if (!openAIApiKey) throw new Error("❌ OpenAI API key not provided");
@@ -15,22 +17,62 @@ const embeddings = new OpenAIEmbeddings({
   model: "text-embedding-3-small",
 });
 
-
-// Cargar documento PDF
-const loadDocument = async (filePath) => {
+const loadDocument = async (fileUrl) => {
   try {
-    if (!fs.existsSync(filePath)) throw new Error("File not found");
-    const loader = new PDFLoader(filePath, { splitPages: false });
+    // download file from url
+    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+
+    const mimetype =
+      response.headers["content-type"] || "application/octet-stream";
+
+    // create temporary path
+    const extension = mimetype.includes("pdf")
+      ? "pdf"
+      : mimetype.includes("word")
+      ? "docx"
+      : mimetype.includes("text")
+      ? "txt"
+      : "bin";
+
+    const tempPath = path.join(
+      os.tmpdir(),
+      `temp_${Date.now()}.${extension}`
+    );
+
+    fs.writeFileSync(tempPath, response.data);
+
+    // select loader according to type
+    let loader;
+
+    if (mimetype === "application/pdf") {
+      loader = new PDFLoader(tempPath, { splitPages: false });
+    } else if (
+      mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimetype === "application/msword"
+    ) {
+      loader = new DocxLoader(tempPath);
+    } else if (mimetype.startsWith("text/")) {
+      loader = new TextLoader(tempPath);
+    } else {
+      fs.unlinkSync(tempPath);
+      throw new Error(`Unsupported file type: ${mimetype}`);
+    }
+
+    // process file
     const docs = await loader.load();
-    console.log("Documento cargado:", docs.length, "página(s)");
+
+    // clean up temporary file
+    fs.unlinkSync(tempPath);
+
     return docs;
   } catch (err) {
     console.error("Error loading document:", err.message);
     throw new Error("Failed to load document");
   }
-};
+}
 
-// Dividir documentos en chunks
+// split documents into chunks
 const splitDocuments = async (docs, chunkSize = 1000, chunkOverlap = 150) => {
   try {
     const splitter = new RecursiveCharacterTextSplitter({
@@ -46,7 +88,7 @@ const splitDocuments = async (docs, chunkSize = 1000, chunkOverlap = 150) => {
   }
 };
 
-// Crear vector store
+// Create vector store
 const createVectorStore = async (splitDocs) => {
   try {
     const store = new SimpleMemoryVectorStore(embeddings);
@@ -91,15 +133,10 @@ const getVectorStoreForBusiness = async (businessId) => {
   const allSplitDocs = [];
 
   for (const knowledge of knowledgeSources) {
-    const filePath = path.resolve(knowledge.fileUrl);
-    
-    if (!fs.existsSync(filePath)) {
-      console.warn(`File not found: ${filePath}`);
-      continue;
-    }
+    const fileUrl = knowledge.fileUrl;
 
     try {
-      const docs = await loadDocument(filePath);
+      const docs = await loadDocument(fileUrl);
       const splitDocs = await splitDocuments(docs);
       
       // Add additional metadata to each chunk

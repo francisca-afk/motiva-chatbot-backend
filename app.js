@@ -17,6 +17,8 @@ const businessRoutes = require('./routes/businessRoutes');
 const testRoutes = require('./routes/testRoutes')
 const authRoutes = require('./routes/authRoutes');
 const alertRoutes = require('./routes/alertRoutes');
+const embedChatRoute = require('./routes/embedChatRoute');
+
 
 //Connect to MongoDB
 connectDB();
@@ -52,11 +54,12 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api/test', testRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/alert', alertRoutes);
-
+app.use('/widget', embedChatRoute);
 
 app.get('/api', (req, res) => {
   res.send('Chatbot microservice is running 🚀');
 });
+
 
 //Start server
 const PORT = process.env.PORT || 5002;

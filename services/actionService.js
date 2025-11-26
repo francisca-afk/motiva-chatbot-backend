@@ -1,8 +1,5 @@
 const nodemailer = require('nodemailer');
-const sgTransport = require('nodemailer-sendgrid-transport');
 const Business = require('../models/Business');
-const { analyzeMoodAndEngagement } = require('./analyzer');
-const ChatMessage = require('../models/ChatMessage');
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',

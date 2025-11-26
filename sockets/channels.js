@@ -12,7 +12,6 @@ function alertHandler(io, socket) {
       socket.join(room);
       console.log(`🔔 Socket ${socket.id} joined alerts room: ${room}`);
       
-      // Confirma al cliente que se unió exitosamente
       socket.emit('joined_alerts', { businessId, room });
     });
   
@@ -27,10 +26,8 @@ function alertHandler(io, socket) {
    * CHAT LIVE CHANNEL HANDLER
    * Handles real-time chat communication
    */
-// sockets/channels.js
 function chatLiveHandler(io, socket) {
   
-    // ✅ AGREGA ESTO - Para recibir notificaciones de TODAS las conversaciones
     socket.on('join_business_conversations', (businessId) => {
       const room = `business_${businessId}_chat`;
       socket.join(room);
@@ -44,7 +41,7 @@ function chatLiveHandler(io, socket) {
       console.log(`👋 Socket ${socket.id} left business conversations room: ${room}`);
     });
   
-    // Para unirse a UNA conversación específica (cuando abres el chat)
+    //join to specific conversation room
     socket.on('join_conversation', (sessionId) => {
       socket.join(sessionId);
       console.log(`✅ Socket ${socket.id} joined session: ${sessionId}`);
@@ -75,6 +72,22 @@ function chatLiveHandler(io, socket) {
       }
       
     });
+    socket.on('join_business_conversations', (businessId) => {
+      const room = `business_${businessId}_chat`;
+      socket.join(room);
+      console.log(`💬 Socket ${socket.id} joined business conversations room: ${room}`);
+      socket.emit('joined_business_conversations', { room });
+    });
+
+    socket.on('handoff_acknowledged', (data) => {
+      const room = `business_${data.businessId}_chat`;
+      io.to(room).emit('client_acknowledged_handoff', {
+        sessionId: data.sessionId
+      });
+      io.to(data.sessionId).emit('client_acknowledged_handoff', {
+        sessionId: data.sessionId
+      })
+    })
   
     socket.on('support_typing', ({ sessionId }) => {
       socket.to(sessionId).emit('support_typing', { sessionId });

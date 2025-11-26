@@ -29,19 +29,10 @@ exports.createBusiness = async (req, res) => {
       users: [userId],
     });
 
-    console.log(business, "business created!")
-    
     // Sync the business with the user
-    console.log(user.business, "user.business")
-    console.log(business._id, "business._id")
-
-    console.log(user, "user ")
-    
     if (!user.business || user.business === null) {
-      console.log("user.business is null, updating user.business")
       user.business = business._id;
       await user.save();
-      console.log(user, "user updated!")
     }
 
     res.status(201).json({
@@ -108,6 +99,20 @@ exports.updateBusiness = async (req, res) => {
     res.status(200).json({ message: 'Business updated successfully', data: business });
   } catch (error) {
     console.error('Error updating business:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getBusinessChatbotSettings = async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    const business = await Business.findById(businessId);
+    if(!business) {
+      return res.status(204).json({ message: 'No business found', data: null });
+    }
+    res.status(200).json({ message: 'Business chatbot settings retrieved successfully', data: business.chatbotSettings });
+  } catch (error) {
+    console.error('Error getting business chatbot settings:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

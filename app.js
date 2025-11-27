@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const { Server } = require('socket.io');
 const { alertHandler, chatLiveHandler } = require('./sockets/channels');
+const path = require("path");
 
 require('dotenv').config();
 
@@ -46,6 +47,8 @@ io.on('connection', (socket) => {
   });
   
 app.set('io', io);
+
+app.use("/widget", express.static(path.join(__dirname, "public/widget")));
 
 app.use('/api/chat', chatRoutes);
 app.use('/api/knowledge', knowledgeRoutes);

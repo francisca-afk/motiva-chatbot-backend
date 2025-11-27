@@ -19,16 +19,11 @@ const model = new ChatOpenAI({
 
 const responseParser = StructuredOutputParser.fromNamesAndDescriptions({
   response: "The agent's full response to the user (must always be in the user language).",
-  agentCanContinue: 
-    "true if the AI agent can continue handling the conversation flow (asking questions, providing steps, or closing the case). false ONLY when the agent must stop because meaningful progress is no longer possible.",
-  issueResolved: 
-    "true if the user's issue has been fully resolved by the AI. false if the issue is pending, incomplete, unknown, or needs clarification.",
-  needsHumanIntervention:
-    "true if the case should now be handled by a human (due to missing data, business constraints, errors, or policy limits). false otherwise.",
-  confidence: 
-    "Confidence level between 0 and 1 of your answer.",
-  reasoning: 
-    "Brief explanation (max 60 words) of why your confidence level is appropriate—always in the business language, or English if unknown."
+  agentCanContinue: "true if the AI agent can continue handling the conversation flow (asking questions, providing steps, or closing the case). false ONLY when the agent must stop because meaningful progress is no longer possible.",
+  issueResolved: "true if the user's issue has been fully resolved by the AI. false if the issue is pending, incomplete, unknown, or needs clarification.",
+  needsHumanIntervention: "true if the case should now be handled by a human (due to missing data, business constraints, errors, or policy limits). false otherwise.",
+  confidence: "Confidence level between 0 and 1 of your answer.",
+  reasoning: "Brief explanation (max 60 words) of why your confidence level is appropriate—always in the business language, or English if unknown."
 });
 
 /**
@@ -68,11 +63,9 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
     const systemPromptContent = await buildSystemPromptContent(businessId, mood, context);
     
     const formatInstructions = responseParser.getFormatInstructions();
-    /**
-    const escapedFormatInstructions = formatInstructions
-      .replace(/\{/g, '{{')
-      .replace(/\}/g, '}}');
-    */
+    const safeFormatInstructions = formatInstructions
+      .replace(/{/g, "{{")
+      .replace(/}/g, "}}");
 
     // Load chat history from MongoDB
     
@@ -113,9 +106,8 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
         - If needsHumanIntervention = true → agentCanContinue = false AND issueResolved = false
         - The combination (agentCanContinue = false AND needsHumanIntervention = false) is INVALID
             
-        ------------------------------------------------------------
+        
         Decision logic for information gathering, contact handling, and resolution:
-        ------------------------------------------------------------
 
         0. Rule for Non-Problem Messages (SALUTATIONS / SMALL TALK / NO CONTENT)
           - If the user message contains no question, no problem, no request, and no actionable content
@@ -208,7 +200,6 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
         REPETITION RULE — MUST FOLLOW:
           - If the user already provided the required information (such as contact details), DO NOT repeat previous explanations.
           - Instead, give a short confirmation and proceed with the next step (summary + escalation).
-        ------------------------------------------------------------
 
           Conversation history:
           {conversationHistory}
@@ -222,7 +213,7 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
         const input = await systemPromptTemplate.format({
           conversationHistory: chatHistory,
           humanAgentAvailable: humanAgentAvailable,
-          format_instructions: formatInstructions
+          format_instructions: safeFormatInstructions
         });
         
     

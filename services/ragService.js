@@ -4,6 +4,7 @@ const { SimpleMemoryVectorStore } = require("./inMemoryVectorStore");
 const { PDFLoader } = require("@langchain/community/document_loaders/fs/pdf");
 const { DocxLoader } = require("@langchain/community/document_loaders/fs/docx");
 const { TextLoader } = require("@langchain/classic/document_loaders/fs/text");
+const KnowledgeSource = require("../models/KnowledgeSource");
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
@@ -19,58 +20,75 @@ const embeddings = new OpenAIEmbeddings({
 
 const loadDocument = async (fileUrl) => {
   try {
-    // download file from url
+    console.log(`🔽 Downloading file: ${fileUrl}`);
+
+    // Download file
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+    console.log(`📥 Response headers: ${JSON.stringify(response.headers, null, 2)}`);
 
     const mimetype =
       response.headers["content-type"] || "application/octet-stream";
+    console.log(`📄 Mimetype detected: ${mimetype}`);
 
-    // create temporary path
-    const extension = mimetype.includes("pdf")
+    // Create temp file
+    const lowerMime = mimetype.toLowerCase();
+    const extension = lowerMime.includes("pdf")
       ? "pdf"
-      : mimetype.includes("word")
+      : lowerMime.includes("word") || lowerMime.includes("officedocument")
       ? "docx"
-      : mimetype.includes("text")
+      : lowerMime.includes("text") || lowerMime.includes("plain")
       ? "txt"
       : "bin";
 
-    const tempPath = path.join(
-      os.tmpdir(),
-      `temp_${Date.now()}.${extension}`
-    );
-
+    const tempPath = path.join(os.tmpdir(), `temp_${Date.now()}.${extension}`);
     fs.writeFileSync(tempPath, response.data);
+    console.log(`💾 Temp file written: ${tempPath}`);
 
-    // select loader according to type
-    let loader;
+    // Select loader
+    let loader = null;
 
-    if (mimetype === "application/pdf") {
+    if (lowerMime.includes("pdf")) {
+      console.log("📘 Using PDFLoader");
       loader = new PDFLoader(tempPath, { splitPages: false });
-    } else if (
-      mimetype ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      mimetype === "application/msword"
-    ) {
+    } else if (lowerMime.includes("word") || lowerMime.includes("officedocument")) {
+      console.log("📗 Using DocxLoader");
       loader = new DocxLoader(tempPath);
-    } else if (mimetype.startsWith("text/")) {
+    } else if (lowerMime.includes("text") || lowerMime.includes("plain")) {
+      console.log("📙 Using TextLoader");
       loader = new TextLoader(tempPath);
-    } else {
-      fs.unlinkSync(tempPath);
-      throw new Error(`Unsupported file type: ${mimetype}`);
     }
 
-    // process file
+    // Validate loader
+    if (!loader) {
+      fs.unlinkSync(tempPath);
+      throw new Error(`❌ Unsupported or unknown file type: ${mimetype}`);
+    }
+
+    // Load document
     const docs = await loader.load();
 
-    // clean up temporary file
+    console.log(`📚 Loaded ${docs.length} documents`);
+    docs.forEach((d, i) => {
+      console.log(`------ DOCUMENT ${i + 1} ------`);
+      console.log(`Metadata: ${JSON.stringify(d.metadata, null, 2)}`);
+      console.log(`Content preview: ${String(d.pageContent).slice(0, 300)}...`);
+      console.log("------------------------------");
+    });
+
     fs.unlinkSync(tempPath);
+    console.log(`🧹 Temp file deleted`);
+
+    if (docs.length === 0) {
+      console.error("⚠️ WARNING: Loader returned 0 docs");
+    }
 
     return docs;
   } catch (err) {
-    console.error("Error loading document:", err.message);
+    console.error("❌ Error loading document:", err);
     throw new Error("Failed to load document");
   }
-}
+};
+
 
 // split documents into chunks
 const splitDocuments = async (docs, chunkSize = 1000, chunkOverlap = 150) => {
@@ -137,8 +155,9 @@ const getVectorStoreForBusiness = async (businessId) => {
 
     try {
       const docs = await loadDocument(fileUrl);
+      console.log(`Docs: ${docs}`);
       const splitDocs = await splitDocuments(docs);
-      
+      console.log(`Split docs: ${splitDocs}`);
       // Add additional metadata to each chunk
       splitDocs.forEach(doc => {
         doc.metadata = {
@@ -170,71 +189,85 @@ const getVectorStoreForBusiness = async (businessId) => {
   return vectorStore;
 }
 
-
 const getRAGContext = async (businessId, userMessage) => {
-  try {
-    console.log("🔎 Searching RAG context");
+  console.log("🔎 [RAG] Searching context…");
 
+  try {
+    //Load cached vector store
     const vectorStore = await getVectorStoreForBusiness(businessId);
+    console.log("📚 [RAG] Vector store loaded:", !!vectorStore);
 
     if (!vectorStore) {
+      console.warn("⚠️ [RAG] No vector store available for this business");
       return { context: "", sourcesUsed: [], ragConfidence: 0 };
     }
 
-    // --- SAFE similaritySearchWithScore ---
+    // Retrieve top-k similar documents
     let results;
     try {
-      results = await vectorStore.similaritySearchWithScore(userMessage, 3);
+      results = await vectorStore.similaritySearchWithScore(userMessage, 5);
+      console.log(`📌 [RAG] similaritySearchWithScore returned ${results.length} results`);
     } catch (err) {
-      console.error("❌ similaritySearchWithScore error:", err);
+      console.error("❌ [RAG] Error during similaritySearchWithScore:", err);
       return { context: "", sourcesUsed: [], ragConfidence: 0 };
     }
 
-    // Enforce array
     if (!Array.isArray(results) || results.length === 0) {
+      console.warn("⚠️ [RAG] No documents retrieved from vector store");
       return { context: "", sourcesUsed: [], ragConfidence: 0 };
     }
 
-    const safeResults = results.filter(
-      (r) => Array.isArray(r) && r.length >= 2 && r[0] && typeof r[1] === "number"
-    );
+    // Normalize results format
+    const normalized = results
+      .map((entry, index) => {
+        if (entry && entry.doc) {
+          console.log(`   🔸 [RAG] Result #${index + 1} — doc: ${entry.doc} — score: ${entry.score}`);
+          return { doc: entry.doc, score: entry.score ?? null };
+        }
+        console.warn(`   ⚠️ [RAG] Unexpected result format at index ${index}:`, entry);
+        return null;
+      })
+      .filter(Boolean)
+      .filter(r => r.doc);
 
-    if (safeResults.length === 0) {
-      console.warn("⚠️ No valid results found in similaritySearchWithScore()");
+    if (normalized.length === 0) {
+      console.warn("⚠️ [RAG] All normalized results invalid");
       return { context: "", sourcesUsed: [], ragConfidence: 0 };
     }
 
-    const scores = safeResults.map((r) => r[1]);
-
-    // FAISS: less score = more similar
-    const maxScore = Math.max(...scores);
-    const normalizedConfidence = Math.max(0, 1 - maxScore);
-
-    const CONFIDENCE_THRESHOLD = 0.55;
-
-    // Low confidence -> no send context
-    if (normalizedConfidence < CONFIDENCE_THRESHOLD) {
-      return { context: "", sourcesUsed: [], ragConfidence: normalizedConfidence };
+    // Compute ragConfidence (simple cosine-to-confidence heuristic)
+    let ragConfidence = 1;
+    if (normalized[0].score != null) {
+      ragConfidence = Math.max(0.05, 1 - normalized[0].score);
     }
 
-    // Build context + sources
+    console.log("📈 [RAG] ragConfidence:", ragConfidence);
+
+    // Build context to feed the LLM
     const sourcesUsed = [];
-    const context = safeResults
-      .map(([doc, score], i) => {
-        const source = doc.metadata?.sourceTitle || "Documento sin título";
-        sourcesUsed.push(source);
-        return `[Source ${i + 1}: ${source} | score: ${score.toFixed(4)}]\n${doc.pageContent}`;
+    const context = normalized
+      .map(({ doc, score }, i) => {
+        const src = doc.metadata?.sourceTitle || "Untitled source";
+        sourcesUsed.push(src);
+
+        return (
+          `[Source ${i + 1}: ${src} | score: ${score ?? "none"}]\n` +
+          doc.pageContent
+        );
       })
       .join("\n\n---\n\n");
+
+    console.log(`📝 [RAG] Context built with ${normalized.length} chunks`);
+    console.log("📄 [RAG] Sources used:", [...new Set(sourcesUsed)]);
 
     return {
       context,
       sourcesUsed: [...new Set(sourcesUsed)],
-      ragConfidence: normalizedConfidence,
+      ragConfidence,
     };
 
   } catch (error) {
-    console.error("❌ Error en RAG:", error);
+    console.error("❌ [RAG] Unexpected error:", error);
     return { context: "", sourcesUsed: [], ragConfidence: 0 };
   }
 };

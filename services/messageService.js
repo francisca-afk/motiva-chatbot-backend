@@ -28,13 +28,14 @@ exports.saveAssistantResponse = async (sessionId, mood, result, sentimentData, e
         temperature: '0.3',
         hasKnowledgeBase: result.hasContext.toString(),
         knowledgeConfidence: result.confidence.toString(),
-        canResolve: result.canResolve.toString(),
+        agentCanContinue: result.agentCanContinue.toString(),
+        issueResolved: result.issueResolved.toString(),
         needsHumanIntervention: result.needsHumanIntervention.toString(),
         reasoningByLLM: result.reasoning,
         sourcesCount: result.sourcesUsed.length.toString(),
         selectedMoodByUser: mood,
-        sentiment: sentimentData ? JSON.stringify(sentimentData) : null,
-        engagement: engagementAnalysis ? JSON.stringify(engagementAnalysis) : null
+        sentiment: sentimentData ? sentimentData : null,
+        engagement: engagementAnalysis ? engagementAnalysis : null
     };
 
     const assistantMessage = await ChatMessage.create({

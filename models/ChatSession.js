@@ -55,6 +55,10 @@ const chatSessionSchema = new mongoose.Schema({
       default: false
     }
   },
+  lastMessageAt: {
+    type: Date,
+    default: null
+  }
 }, { 
   timestamps: true 
 });

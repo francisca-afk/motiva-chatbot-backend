@@ -39,17 +39,19 @@ exports.generateChatResponse = async (req, res) => {
         data: { sessionId: session._id, handedOff: true }
       });
     }
-
+    /*
     const shouldAnalyze = await shouldAnalyzeSentiment(session._id, message);
     console.log(`Should analyze: ${shouldAnalyze}`);
     console.log(`User mood: ${userMood}`);
-
+    */
     const chatHistory = await loadChatHistory(session._id);
 
     let runSentiment = false;
 
     if (userMood === 'none') {
       const shouldAnalyze = await shouldAnalyzeSentiment(session._id, message);
+      console.log(`Should analyze: ${shouldAnalyze}`);
+      console.log(`User mood: ${userMood}`);
       runSentiment = shouldAnalyze;
     }
 
@@ -64,57 +66,66 @@ exports.generateChatResponse = async (req, res) => {
       result = await generateResponseWithContext(businessId, message, userMood, chatHistory);
       sentimentData = null;
     }
-    
-    console.log(`Result from response:  ${result.response}`);
-    console.log(`Result from sourcesUsed:  ${result.sourcesUsed}`);
-    console.log(`Result from hasContext:  ${result.hasContext}`);
-    console.log(`Result from confidence:  ${result.confidence}`);
-    console.log(`Result from canResolve:  ${result.canResolve}`);
-    console.log(`Result from reasoning:  ${result.reasoning}`);
-    console.log(`Result from needsHumanIntervention:  ${result.needsHumanIntervention}`);
+      console.log(`Result from response:  ${result.response}`);
+      console.log(`Result from sourcesUsed:  ${result.sourcesUsed}`);
+      console.log(`Result from hasContext:  ${result.hasContext}`);
+      console.log(`Result from confidence:  ${result.confidence}`);
+      console.log(`Result from agentCanContinue:  ${result.agentCanContinue}`);
+      console.log(`Result from issueResolved:  ${result.issueResolved}`);
+      console.log(`Result from reasoning:  ${result.reasoning}`);
+      console.log(`Result from needsHumanIntervention:  ${result.needsHumanIntervention}`);
 
-    const flags = {
-      isLowMood: userMood !== 'none'
-        ? LOW_MOODS.includes(userMood)
-        : sentimentData?.isLowMood || false,
-    
-      aiUnresolved:
-        !result.canResolve ||
-        !result.hasContext ||
-        result.confidence < 0.4 ||
-        result.needsHumanIntervention
-    };
-    
-    const decision = computeAlertDecision(flags, session.alertState || {});
-    
-    if (decision.severity !== "none") {
-      await handleAlerts({
-        req,
-        session,
-        decision,
-        sentimentData,
-        userMood,
-        businessId,
-        chatHistory,
-        message,
-        result
-      });
-    }
+      await saveAssistantResponse(session._id, userMood, result, sentimentData );
 
-    await saveAssistantResponse(session._id, userMood, result, sentimentData );
+      res.status(200).json({
+        message: 'Response generated successfully',
+        data: {
+          sessionId: session._id,
+          response: result.response,
+          mood: userMood,
+          sources: result.sourcesUsed || [],
+          hasKnowledgeBase: result.hasContext || false,
+          createdAt: new Date()
+        }
+    });
+    
+    process.nextTick(async () => {
+      try {
+          console.log('Running alert logic in background');
 
-    res.status(200).json({
-      message: 'Response generated successfully',
-      data: {
-        sessionId: session._id,
-        response: result.response,
-        mood: userMood,
-        sources: result.sourcesUsed || [],
-        hasKnowledgeBase: result.hasContext || false,
-        createdAt: new Date()
+          const flags = {
+            isLowMood: userMood !== 'none'
+              ? LOW_MOODS.includes(userMood)
+              : sentimentData?.isLowMood || false,
+          
+            aiUnresolved:
+              !result.agentCanContinue||
+              result.needsHumanIntervention ||
+              result.confidence < 0.4,
+
+            isGatheringInfo: result.agentCanContinue && !result.needsHumanIntervention && !result.issueResolved
+          };
+          
+          const decision = computeAlertDecision(flags, session.alertState || {});
+          
+          if (decision.severity !== "none") {
+            handleAlerts({
+              req,
+              session,
+              decision,
+              sentimentData,
+              userMood,
+              businessId,
+              chatHistory,
+              message,
+              result
+            })
+          }
+
+    } catch (error) {
+        console.error('Error in generateChatResponse in background:', error);
       }
     });
-
   } catch (error) {
     console.error('Error in generateChatResponse:', error);
     res.status(500).json({
@@ -385,7 +396,7 @@ exports.getBusinessConversations = async (req, res) => {
 
     const sessions = await ChatSession.find({ business: businessId })
       .populate('business', 'name')
-      .sort({ updatedAt: -1 })
+      .sort({ lastMessageAt: -1 })
       .lean();
 
     res.status(200).json({ message: 'Conversations retrieved successfully', data: { count: sessions.length, sessions } });

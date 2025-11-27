@@ -1,6 +1,5 @@
 // chatService.js
 const { ChatOpenAI } = require("@langchain/openai");
-const { HumanMessage, SystemMessage, AIMessage } = require("@langchain/core/messages")
 const { PromptTemplate } = require("@langchain/core/prompts");
 const { StructuredOutputParser } = require("@langchain/core/output_parsers")
 const { getRAGContext } = require("./ragService");
@@ -19,11 +18,17 @@ const model = new ChatOpenAI({
 });
 
 const responseParser = StructuredOutputParser.fromNamesAndDescriptions({
-  response: "The Agent's complete response to the user (Must always be in the user language)",
-  canResolve: "true if the AI can fully assist; false if human intervention is needed.",
-  confidence: "Confidence level between 0 and 1 of your answer",
-  reasoning: "Brief explanation of confidence level (max 60 words). Always in the business language or English if you don't have the business language",
-  needsHumanIntervention: "true if the conversation needs human intervention to answer the question; false otherwise."
+  response: "The agent's full response to the user (must always be in the user language).",
+  agentCanContinue: 
+    "true if the AI agent can continue handling the conversation flow (asking questions, providing steps, or closing the case). false ONLY when the agent must stop because meaningful progress is no longer possible.",
+  issueResolved: 
+    "true if the user's issue has been fully resolved by the AI. false if the issue is pending, incomplete, unknown, or needs clarification.",
+  needsHumanIntervention:
+    "true if the case should now be handled by a human (due to missing data, business constraints, errors, or policy limits). false otherwise.",
+  confidence: 
+    "Confidence level between 0 and 1 of your answer.",
+  reasoning: 
+    "Brief explanation (max 60 words) of why your confidence level is appropriate—always in the business language, or English if unknown."
 });
 
 /**
@@ -88,98 +93,122 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
       - No markdown, no \`\`\`json blocks
       - No explanations outside the JSON
       - Even if the conversation history shows text responses, YOU must return JSON
-      
-        
+
+      FIELD DEFINITIONS (CRITICAL):
+        "agentCanContinue":
+          - "true"  → You (the AI) can continue the conversation flow 
+                      (ask questions, clarify, answer, give steps, or close the case).
+          - "false" → You cannot make further useful progress. A human must take over.
+
+        "issueResolved":
+          - "true"  → The issue is fully solved.
+          - "false" → The issue is NOT fully solved (still clarifying, answering, or escalating).
+
+        "needsHumanIntervention":
+          - "true"  → Escalate case to a human.
+          - "false" → Keep the case with the AI.
+
+        RELATION RULES (MUST FOLLOW):
+        - If issueResolved = true  → agentCanContinue = true AND needsHumanIntervention = false
+        - If needsHumanIntervention = true → agentCanContinue = false AND issueResolved = false
+        - The combination (agentCanContinue = false AND needsHumanIntervention = false) is INVALID
+            
+        ------------------------------------------------------------
         Decision logic for information gathering, contact handling, and resolution:
+        ------------------------------------------------------------
 
         0. Rule for Non-Problem Messages (SALUTATIONS / SMALL TALK / NO CONTENT)
-          - If the user message contains no question, no problem, no request, and no actionable content (examples: “hola”, “hello”, “hi”, “buenas”, “qué tal”, emojis, or casual small talk), then:
-            - Treat it as a neutral greeting.
-            - Provide a short, friendly welcome aligned with the business tone.
-            - Do NOT ask clarifying questions.
-            - Do NOT request information.
-            - Do NOT start the resolution workflow.
-            - Set the JSON fields as:
-              "canResolve" = true
-              "needsHumanIntervention" = false
-            - This message should NOT trigger alerts or escalation logic.
-    
+          - If the user message contains no question, no problem, no request, and no actionable content
+            (e.g., “hola”, “hello”, emojis, small talk):
+                • Treat it as a neutral greeting.
+                • Respond with a short friendly welcome.
+                • Do NOT ask clarifying questions.
+                • Do NOT request information.
+                • Do NOT start the problem-resolution workflow.
+                • Set:
+                    agentCanContinue = "true"
+                    issueResolved = "false"
+                    needsHumanIntervention = "false"
+
         1. Information collection (always first)
-          - Before deciding "canResolve" or "needsHumanIntervention", you MUST collect enough details about the issue.
-          - Ask 1–3 short, relevant questions to understand the situation from a business point of view.
-            For example, for billing or service issues, ask about:
-              • Which product or service is affected
-              • Relevant dates or time period
-              • Order ID, invoice ID, or account reference (if applicable)
-              • Amount charged or type of problem (e.g. duplicated payment, missing access, wrong plan, etc.)
-          - While you are still collecting information, set:
-              "canResolve" = false
-              "needsHumanIntervention" = false
-            (the case is still in progress, not yet escalated).
-    
+          - If additional details are needed, ask 1–3 focused questions.
+          - WHILE collecting info:
+                agentCanContinue = "true"
+                issueResolved = "false"
+                needsHumanIntervention = "false"
+
         2. Contact information handling
           - If humanAgentAvailable = true:
-                • DO NOT ask for contact information.
-                • Tell the user that a representative is available and will join shortly.
+                • Do NOT ask for contact info.
+                • Inform the user a human will join.
                 • Set:
-                    "canResolve" = false
-                    "needsHumanIntervention" = true
-                (Because a human will handle the case immediately.)
+                    agentCanContinue = "false"
+                    issueResolved = "false"
+                    needsHumanIntervention = "true"
 
           - If humanAgentAvailable = false:
-                • If the user's contact information (email or phone) is NOT present:
-                      - After clarifying questions, politely request their contact details.
-                      - Keep:
-                            "canResolve" = false
-                            "needsHumanIntervention" = false
-                      (The case cannot escalate yet.)
-                
-                • If contact information IS present already:
-                      - Use it in reasoning.
-                      - If the issue CANNOT be resolved:
-                            Set:
-                              "canResolve" = false
-                              "needsHumanIntervention" = true
-                      (The case can now be escalated.)
-    
-        3. Resolution vs escalation
-          3.1 If you can fully solve the issue with the available information:
-              - Provide a clear answer or step-by-step solution.
-              - Set:
-                  "canResolve" = true
-                  "needsHumanIntervention" = false
-    
-          3.2 If you CANNOT fully solve the issue after asking clarifying questions:
-              - If contact information is available (in history or just provided):
-                  • Summarize the situation in a concise way so a human can understand the case quickly.
-                  • Inform the user that a representative will contact them to continue the support.
-                  • Set:
-                      "canResolve" = false
-                      "needsHumanIntervention" = true
-              - If contact information is NOT available (This is mandatory):
-                  • Ask for contact details.
-                  • Until the user provides them, keep:
-                      "canResolve" = false
-                      "needsHumanIntervention" = false
-                  • Once you have contact info and you still cannot resolve the issue:
-                      - Summarize the case,
-                      - Inform the user that a representative will reach out,
-                      - Set:
-                          "canResolve" = false
-                          "needsHumanIntervention" = true
-    
-        4. General rules
-          - Always base your response on the conversation context and the business knowledge base.
-          - Keep responses professional, focused, and user-oriented.
-          - Do NOT include any text outside the JSON block.
-        
-        5. IMPORTANT RULE ABOUT CLARIFYING QUESTIONS:
-        - Only ask clarifying questions if they are logically necessary to solve the user's issue.
-        - If the question the user is asking is already specific and the missing information cannot be inferred, AND additional details would NOT meaningfully change your ability to answer, DO NOT ask for more details.
-        - If the business or knowledge base clearly lacks the type of information the user is requesting, DO NOT ask for extra details. Instead, state clearly that the information is not available.
-        - If the question is ambiguous or incomplete in a way that prevents a correct answer, THEN ask 1–2 clarifying questions.
-        - Your reasoning must always consider whether asking for more details would actually help produce a better answer. If not, you should avoid asking and proceed with the best possible response.
+                a) If NO contact info yet:
+                    • After clarifying questions, request contact info.
+                    • Continue AI workflow:
+                        agentCanContinue = "true"
+                        issueResolved = "false"
+                        needsHumanIntervention = "false"
 
+                b) If contact info IS available:
+                    • If AI cannot fully solve the issue:
+                        agentCanContinue = "false"
+                        issueResolved = "false"
+                        needsHumanIntervention = "true"
+
+        3. Resolution vs escalation
+          3.1 Issue fully solved by AI:
+                • Provide the solution.
+                • Set:
+                    agentCanContinue = "true"
+                    issueResolved = "true"
+                    needsHumanIntervention = "false"
+
+          3.2 Issue NOT fully solved:
+                - If contact info exists:
+                      agentCanContinue = "false"
+                      issueResolved = "false"
+                      needsHumanIntervention = "true"
+
+                - If contact info NOT available:
+                      • Ask for contact details.
+                      • While waiting:
+                            agentCanContinue = "true"
+                            issueResolved = "false"
+                            needsHumanIntervention = "false"
+
+        4. Clarifying question rules:
+          - Ask questions ONLY when logically necessary.
+          - DO NOT ask for info that won’t change the answer.
+          - If the knowledge base lacks the answer → clearly say so, no extra questions.
+          - If ambiguous → ask up to 2 clarifying questions.
+
+        IMPORTANT BUSINESS RULE — MUST FOLLOW:
+          The AI cannot “resolve” issues that require human-driven operations such as:
+          - canceling a subscription or service
+          - processing refunds
+          - modifying billing or invoices
+          - account deletion
+          - manual configuration
+          - administrative or internal system changes
+
+          For those cases:
+          - The issue can NEVER be marked as resolved by the AI.
+          - The AI must ALWAYS escalate once contact info is available.
+
+          Therefore:
+          issueResolved = "false"
+          needsHumanIntervention = "true"
+          agentCanContinue = "false"
+        
+        REPETITION RULE — MUST FOLLOW:
+          - If the user already provided the required information (such as contact details), DO NOT repeat previous explanations.
+          - Instead, give a short confirmation and proceed with the next step (summary + escalation).
+        ------------------------------------------------------------
 
           Conversation history:
           {conversationHistory}
@@ -198,7 +227,7 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
         
     
 
-    console.log(`📨 Invoking LangChain with input: ${input}`);
+    console.log(`Invoking LangChain model`);
 
     const aiMessage = await model.invoke(input);
 
@@ -208,7 +237,11 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
     let structuredResponse;
     try {
       structuredResponse = await responseParser.parse(aiMessage.content);
+      structuredResponse.agentCanContinue = await parseBoolean(structuredResponse.agentCanContinue);
+      structuredResponse.issueResolved = await parseBoolean(structuredResponse.issueResolved);
       structuredResponse.needsHumanIntervention = await parseBoolean(structuredResponse.needsHumanIntervention);
+      structuredResponse.confidence = Number(structuredResponse.confidence);
+      structuredResponse.reasoning = structuredResponse.reasoning || "Standard response";
       console.log(`✅ Response parsed successfully`);
     } catch (parseError) {
       console.warn(`⚠️ Parse error, extracting JSON manually`);
@@ -219,15 +252,17 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
       if (jsonMatch) {
         const jsonStr = jsonMatch[1] || jsonMatch[0];
         structuredResponse = JSON.parse(jsonStr);
-        structuredResponse.canResolve = await parseBoolean(structuredResponse.canResolve);
+        structuredResponse.agentCanContinue = await parseBoolean(structuredResponse.agentCanContinue);
+        structuredResponse.issueResolved = await parseBoolean(structuredResponse.issueResolved);
         structuredResponse.needsHumanIntervention = await parseBoolean(structuredResponse.needsHumanIntervention);
       } else {
         structuredResponse = {
           response: aiMessage.content,
-          canResolve: true,
+          agentCanContinue: true,
+          issueResolved: false,
           confidence: 0.7,
           reasoning: "Could not parse structured output, using raw response",
-          needsHumanIntervention: true
+          needsHumanIntervention: false
         };
       }
     }
@@ -237,10 +272,20 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
       sourcesUsed,
       hasContext: ragConfidence > 0.5,
       ragConfidence: ragConfidence,
-      canResolve: structuredResponse.canResolve !== undefined ? structuredResponse.canResolve : true,
-      confidence: structuredResponse.confidence !== undefined ? Number(structuredResponse.confidence) : 0.7,
-      reasoning: structuredResponse.reasoning || "Standard response",
-      needsHumanIntervention: structuredResponse.needsHumanIntervention !== undefined ? structuredResponse.needsHumanIntervention : false
+      agentCanContinue: structuredResponse.agentCanContinue === undefined 
+      ? true 
+      : await parseBoolean(structuredResponse.agentCanContinue),
+      issueResolved: structuredResponse.issueResolved === undefined 
+          ? false 
+          : await parseBoolean(structuredResponse.issueResolved),
+      needsHumanIntervention:
+          structuredResponse.needsHumanIntervention !== undefined
+            ? await parseBoolean(structuredResponse.needsHumanIntervention)
+            : false,
+      confidence: structuredResponse.confidence
+          ? Number(structuredResponse.confidence)
+          : 0.7,
+      reasoning: structuredResponse.reasoning || "Standard response"
     };
 
   } catch (error) {
@@ -251,7 +296,8 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
       sourcesUsed: [],
       hasContext: false,
       ragConfidence: 0,
-      canResolve: false,
+      agentCanContinue: false,
+      issueResolved: false,
       confidence: 0,
       reasoning: `Error: ${error.message}`,
       needsHumanIntervention: true

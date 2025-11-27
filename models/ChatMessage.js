@@ -32,7 +32,7 @@ const chatMessageSchema = new mongoose.Schema({
   // added metadata field for stuffs like: model, temperature, etc
   metadata: {
     type: Map,
-    of: String,
+    of: mongoose.Schema.Types.Mixed,
     default: {}
   }
 }, { 
@@ -42,7 +42,8 @@ const chatMessageSchema = new mongoose.Schema({
 chatMessageSchema.post('save', async function() {
   await mongoose.model('ChatSession').findByIdAndUpdate(
     this.session,
-    { updatedAt: new Date() }
+    { lastMessageAt: this.createdAt },
+    { new: true }
   );
 })
 

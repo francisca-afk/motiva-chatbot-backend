@@ -83,7 +83,8 @@ exports.handleAlerts = async ({
         sentiment: sentimentData || null,
         ai: {
           confidence: result.confidence,
-          canResolve: result.canResolve,
+          agentCanContinue: result.agentCanContinue,
+          issueResolved: result.issueResolved,
           hasContext: result.hasContext,
           reasoning: result.reasoning
         }

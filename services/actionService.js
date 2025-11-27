@@ -51,7 +51,8 @@ exports.sendEscalationEmail = async (
           <p><strong>Conversation Type:</strong> ${analysis.conversationType}</p>
           
           <h3>🤖 AI Response Status</h3>
-          <p><strong>Can Resolve:</strong> ${result.canResolve ? '✅ Yes' : '❌ No'}</p>
+          <p><strong>Agent Can Continue:</strong> ${result.agentCanContinue ? '✅ Yes' : '❌ No'}</p>
+          <p><strong>Issue Resolved:</strong> ${result.issueResolved ? '✅ Yes' : '❌ No'}</p>
           <p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(0)}%</p>
           <p><strong>Has Context:</strong> ${result.hasContext ? 'Yes' : 'No'}</p>
           
@@ -72,7 +73,9 @@ exports.sendEscalationEmail = async (
         analysis: JSON.stringify(analysis),
         triggers: JSON.stringify({
           lowMood: sentimentData?.isLowMood,
-          cantResolve: !result.canResolve,
+          agentCanContinue: result.agentCanContinue,
+          issueResolved: result.issueResolved,
+          needsHumanIntervention: result.needsHumanIntervention,
           lowConfidence: result.confidence < 0.4
         })
       });
@@ -95,8 +98,7 @@ const logAction = async (sessionId, actionType, details = {}) => {
 
     await new ChatMessage({
       session: sessionId,
-      role: 'system',
-      mood: null,                    
+      role: 'system',                
       action: actionType,       
       content: `Action triggered: ${actionType}`,
       metadata: details || {}       

@@ -83,7 +83,8 @@ exports.analyzeMoodAndEngagement = async (
       - sentimentScore: ${sentimentData?.score ?? "N/A"}
       - isLowMood: ${sentimentData?.isLowMood ?? false}
       - hasContext: ${result.hasContext}
-      - canResolve: ${result.canResolve}
+      - agentCanContinue: ${result.agentCanContinue}
+      - issueResolved: ${result.issueResolved}
       - needsHumanIntervention: ${result.needsHumanIntervention}
       - confidence: ${result.confidence}
       - reasoning: ${result.reasoning || "N/A"}
@@ -92,7 +93,7 @@ exports.analyzeMoodAndEngagement = async (
       1. User's **emotional tone** (must align with one of ['positive','negative','excited','calm','frustrated','tired'])
       2. **Engagement level** (1–10)
       3. **Conversation type** (support, complaint, sales, feedback, inquiry)
-      4. **Urgency** — true if human follow-up is needed (e.g., low confidence, canResolve=false, or low mood)
+      4. **Urgency** — true if human follow-up is needed (e.g., low confidence, agentCanContinue=false, or low mood)
       5. **Suggested action** — one actionable step for the business (max 20 words)
       6. **Brief context summary** (5–8 sentences max)
 
@@ -128,7 +129,8 @@ exports.analyzeMoodAndEngagement = async (
         sentimentScore: sentimentData?.score,
         reasoning: result.reasoning,
         confidence: result.confidence,
-        canResolve: result.canResolve,
+        agentCanContinue: result.agentCanContinue,
+        issueResolved: result.issueResolved,
         hasContext: result.hasContext,
         needsHumanIntervention: result.needsHumanIntervention,
       },

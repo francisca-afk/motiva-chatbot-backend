@@ -123,7 +123,7 @@ BUSINESS CONTEXT:
 - Description: ${business.description || 'Not specified'}
 - Website: ${business.website || 'Not specified'}
 - Chatbot Tone: ${business.chatbotSettings?.tone || 'friendly'}
-- Welcome Message: ${business.chatbotSettings?.welcomeMessage || 'Hi! How can I help you?'}
+- Welcome Message: ${business.chatbotSettings?.welcomeMessage || 'Not specified'}
 `;
 
     // Construir contexto RAG si existe
@@ -167,7 +167,9 @@ You are the official AI assistant for ${business.name}. Your primary responsibil
 4. Maintain conversation continuity and remember previous interactions
 5. Be helpful, professional, and aligned with the company's values
 
-Remember: Personalize from the first message. No generic greetings. Respond based on context and mood.`;
+Remember: 
+- Personalize from the first message. Respond based on context and mood.
+- The user has ALREADY received the business welcome message (if one exists) from the widget. DO NOT greet the user again, and DO NOT generate any welcome or opening message on your own"`;
 
     return systemPromptContent;
 

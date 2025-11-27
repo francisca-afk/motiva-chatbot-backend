@@ -18,7 +18,8 @@ async function createCase({ businessId, sessionId, message, sentimentData, userM
       : { detectedMood: null, score: null },
     ai: {
       confidence: result.confidence,
-      canResolve: result.canResolve,
+      agentCanContinue: result.agentCanContinue,
+      issueResolved: result.issueResolved,
       hasContext: result.hasContext,
       reasoning: result.reasoning
     }

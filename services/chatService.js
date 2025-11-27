@@ -61,6 +61,9 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
 
     // Build system prompt
     const systemPromptContent = await buildSystemPromptContent(businessId, mood, context);
+    const safeSystemPrompt = systemPromptContent
+    .replace(/{/g, "{{")
+    .replace(/}/g, "}}");
     
     const formatInstructions = responseParser.getFormatInstructions();
     const safeFormatInstructions = formatInstructions
@@ -75,7 +78,7 @@ const generateResponseWithContext = async (businessId, userMessage, mood, chatHi
 
     // Build messages
     const systemPromptTemplate = PromptTemplate.fromTemplate(`
-      ${systemPromptContent}
+      ${safeSystemPrompt}
       
       OUTPUT REQUIREMENTS:
       YOU MUST RESPOND ONLY WITH VALID JSON. NO TEXT BEFORE OR AFTER THE JSON OBJECT.

@@ -22,7 +22,7 @@ router.get('/embed.js', (req, res) => {
       }
 
       const SIZES = {
-          closed: { width: '70px', height: '70px' },
+          closed: { width: '50px', height: '50px' },
           open: { width: '400px', height: '640px' },
           mobileOpen: { width: '100%', height: '100%' }
       };
@@ -43,7 +43,6 @@ router.get('/embed.js', (req, res) => {
       iframe.style.width = SIZES.closed.width;
       iframe.style.height = SIZES.closed.height;
       iframe.style.boxShadow = 'none';  
-      iframe.style.borderRadius = '0';
 
       const isMobile = () => window.innerWidth < 480;
 

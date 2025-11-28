@@ -29,8 +29,8 @@ router.get('/embed.js', (req, res) => {
 
       const iframe = document.createElement('iframe');
       iframe.src = '${widgetUrl}/?businessId=' + businessId;
-      iframe.setAttribute('allow', 'transparency');
-      
+
+      iframe.setAttribute('allowTransparency', 'true');
       iframe.style.cssText = \`
           position: fixed;
           bottom: 20px;
@@ -38,19 +38,16 @@ router.get('/embed.js', (req, res) => {
           border: none;
           z-index: 2147483647;
           transition: width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease;
-          color-scheme: normal;
       \`;
         
       iframe.style.width = SIZES.closed.width;
       iframe.style.height = SIZES.closed.height;
       iframe.style.boxShadow = 'none';  
       iframe.style.borderRadius = '0';
-      iframe.style.backgroundColor = 'transparent';
 
       const isMobile = () => window.innerWidth < 480;
 
       window.addEventListener('message', (event) => {
-          // Verificar origen si es necesario por seguridad
           // if (event.origin !== '${widgetUrl}') return;
 
           if (event.data && event.data.type === 'MOTIVA_WIDGET_RESIZE') {
@@ -76,8 +73,10 @@ router.get('/embed.js', (req, res) => {
                   iframe.style.height = SIZES.closed.height;
                   iframe.style.bottom = '30px';
                   iframe.style.right = '30px';
-                  iframe.style.boxShadow = 'none'; 
                   iframe.style.borderRadius = '0';
+                  iframe.style.background = 'transparent';
+                  iframe.style.boxShadow = 'none';
+                  iframe.style.borderRadius = '50%';
               }
           }
       });

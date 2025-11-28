@@ -29,6 +29,7 @@ router.get('/embed.js', (req, res) => {
 
       const iframe = document.createElement('iframe');
       iframe.src = '${widgetUrl}/?businessId=' + businessId;
+      iframe.setAttribute('allow', 'transparency');
       
       iframe.style.cssText = \`
           position: fixed;
@@ -43,7 +44,8 @@ router.get('/embed.js', (req, res) => {
       iframe.style.width = SIZES.closed.width;
       iframe.style.height = SIZES.closed.height;
       iframe.style.boxShadow = 'none';  
-      iframe.style.borderRadius = '0'; 
+      iframe.style.borderRadius = '0';
+      iframe.style.backgroundColor = 'transparent';
 
       const isMobile = () => window.innerWidth < 480;
 

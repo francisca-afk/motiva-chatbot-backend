@@ -116,3 +116,76 @@ exports.getBusinessChatbotSettings = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+exports.updateBusinessTheme = async (req, res) => {
+  console.log('Updating business theme...');
+  console.log(req.body, 'req.body');
+  try {
+    const { businessId } = req.params;
+    const  themeColors  = req.body;
+    console.log(themeColors, 'themeColors');
+    // Validate hex colors
+    const hexRegex = /^#[0-9A-F]{6}$/i;
+    if (!hexRegex.test(themeColors.primary) || 
+        !hexRegex.test(themeColors.secondary) || 
+        !hexRegex.test(themeColors.background) ||
+        !hexRegex.test(themeColors.textMuted) ||
+        !hexRegex.test(themeColors.text)) {
+      return res.status(400).json({ error: 'Invalid color format' });
+    }
+
+    const business = await Business.findByIdAndUpdate(
+      businessId,
+      { 
+        $set: { 
+          'chatbotSettings.theme': {
+            primary: themeColors.primary,
+            secondary: themeColors.secondary,
+            text: themeColors.text,
+            background: themeColors.background,
+            textMuted: themeColors.textMuted,
+            updatedAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    res.json({ 
+      success: true, 
+      data: business.chatbotSettings.theme 
+    });
+  } catch (error) {
+    console.error('Error updating theme:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+ exports.getBusinessTheme = async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    
+    const business = await Business.findById(businessId).select('chatbotSettings.theme');
+    
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    const theme = business.chatbotSettings?.theme || {
+      primary: '#b9d825',
+      secondary: '#7d3f97',
+      background: '#f2f6f8e8',
+      textMuted: '#999999',
+      text: '#646464',
+      updatedAt: business.chatbotSettings?.theme?.updatedAt || new Date()
+    };
+
+    res.json({ data: theme });
+  } catch (error) {
+    console.error('Error fetching theme:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};

@@ -16,6 +16,14 @@ const businessSchema = new mongoose.Schema({
     chatbotSettings: {
       welcomeMessage: { type: String, default: 'Hi! How can I help you today?' },
       offlineMessage: { type: String, default: 'We\'re currently offline. Leave a message!' },
+      theme: {
+        primary: { type: String, default: '#b9d825' },
+        secondary: { type: String, default: '#7d3f97'},
+        background: { type: String, default: '#f2f6f8e8'},
+        text: { type: String, default: '#646464' },
+        textMuted: { type: String, default: '#9ca3af'},
+        updatedAt: { type: Date, default: Date.now }
+      }
     },
     apiKey: { type: String, trim: true },
   }, { 

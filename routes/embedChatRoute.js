@@ -39,8 +39,6 @@ router.get('/embed.js', (req, res) => {
           z-index: 2147483647;
           transition: width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease;
           border-radius: 50%;
-          y-overflow: hidden;
-          overflow: hidden;
       \`;
         
       iframe.style.width = SIZES.closed.width;
@@ -79,6 +77,9 @@ router.get('/embed.js', (req, res) => {
                   iframe.style.background = 'transparent';
                   iframe.style.boxShadow = 'none';
                   iframe.style.borderRadius = '50%';
+                  iframe.overflow = 'hidden';
+                  iframe.overflowY = 'hidden';
+                  iframe.overflowX = 'hidden';
               }
           }
       });

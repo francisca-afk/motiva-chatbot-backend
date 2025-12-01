@@ -20,6 +20,7 @@ const businessSchema = new mongoose.Schema({
         primary: { type: String, default: '#b9d825' },
         secondary: { type: String, default: '#7d3f97'},
         background: { type: String, default: '#f2f6f8e8'},
+        backgroundField: { type: String, default: '#ffffff'},
         text: { type: String, default: '#646464' },
         textMuted: { type: String, default: '#9ca3af'},
         updatedAt: { type: Date, default: Date.now }

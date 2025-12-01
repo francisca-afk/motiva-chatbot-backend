@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createBusiness, getBusinessById, getBusinessByUserId, updateBusiness, getBusinessChatbotSettings, updateBusinessTheme, getBusinessTheme } = require('../controllers/businessController');
+const { createBusiness, getBusinessById, getBusinessByUserId, updateBusiness, getBusinessChatbotSettings, updateBusinessTheme, getBusinessTheme, resetBusinessTheme } = require('../controllers/businessController');
 const auth = require('../middleware/auth');
 
 router.post('/', auth, createBusiness);
@@ -16,5 +16,7 @@ router.get('/:businessId/chatbot-settings', getBusinessChatbotSettings);
 router.patch('/:businessId/theme', auth, updateBusinessTheme);
 
 router.get('/:businessId/theme', getBusinessTheme)
+
+router.patch('/:businessId/theme/reset', auth, resetBusinessTheme);
 
 module.exports = router;

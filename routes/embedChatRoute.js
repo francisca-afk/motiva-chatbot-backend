@@ -23,8 +23,8 @@ router.get('/embed.js', (req, res) => {
 
       const SIZES = {
           closed: { width: '50px', height: '50px' },
-          open: { width: '400px', height: '640px' },
-          mobileOpen: { width: '100%', height: '100%' }
+          open: { width: '380px', height: '600px' },
+          mobileOpen: { width: 'calc(100% - 40px)', height: '80dvh' }
       };
 
       const iframe = document.createElement('iframe');
@@ -39,13 +39,14 @@ router.get('/embed.js', (req, res) => {
           z-index: 2147483647;
           transition: width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease;
           border-radius: 50%;
+          overflow: hidden !important;
       \`;
         
       iframe.style.width = SIZES.closed.width;
       iframe.style.height = SIZES.closed.height;
       iframe.style.boxShadow = 'none';  
 
-      const isMobile = () => window.innerWidth < 480;
+      const isMobile = () => window.innerWidth < 640;
 
       window.addEventListener('message', (event) => {
           // if (event.origin !== '${widgetUrl}') return;
@@ -55,12 +56,13 @@ router.get('/embed.js', (req, res) => {
 
               if (isOpen) {
                   if (isMobile()) {
-                      iframe.style.width = '100%';
-                      iframe.style.height = '100%';
+                      iframe.style.width = SIZES.mobileOpen.width;
+                      iframe.style.height = SIZES.mobileOpen.height;
                       iframe.style.bottom = '0';
                       iframe.style.right = '0';
-                      iframe.style.borderRadius = '0';
+                      iframe.style.borderRadius = '20px';
                   } else {
+                       // Desktop
                       iframe.style.width = SIZES.open.width;
                       iframe.style.height = SIZES.open.height;
                       iframe.style.bottom = '20px';

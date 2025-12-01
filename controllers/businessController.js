@@ -84,7 +84,7 @@ exports.getBusinessByUserId = async (req, res) => {
 exports.updateBusiness = async (req, res) => {
   try {
     const { businessId } = req.params;
-    const updates = req.body; // name, sector, description, etc.
+    const updates = req.body; 
     
     const business = await Business.findByIdAndUpdate(
       businessId, 
@@ -118,14 +118,11 @@ exports.getBusinessChatbotSettings = async (req, res) => {
 };
 
 exports.updateBusinessTheme = async (req, res) => {
-  console.log('Updating business theme...');
-  console.log(req.body, 'req.body');
   try {
     const { businessId } = req.params;
     const  themeColors  = req.body;
-    console.log(themeColors, 'themeColors');
     // Validate hex colors
-    const hexRegex = /^#[0-9A-F]{6}$/i;
+    const hexRegex = /^#([0-9A-F]{6}|[0-9A-F]{8})$/i;
     if (!hexRegex.test(themeColors.primary) || 
         !hexRegex.test(themeColors.secondary) || 
         !hexRegex.test(themeColors.background) ||
@@ -143,6 +140,7 @@ exports.updateBusinessTheme = async (req, res) => {
             secondary: themeColors.secondary,
             text: themeColors.text,
             background: themeColors.background,
+            backgroundField: themeColors.backgroundField,
             textMuted: themeColors.textMuted,
             updatedAt: new Date()
           }
@@ -150,7 +148,6 @@ exports.updateBusinessTheme = async (req, res) => {
       },
       { new: true }
     );
-
     if (!business) {
       return res.status(404).json({ error: 'Business not found' });
     }
@@ -178,6 +175,7 @@ exports.updateBusinessTheme = async (req, res) => {
       primary: '#b9d825',
       secondary: '#7d3f97',
       background: '#f2f6f8e8',
+      backgroundField: '#ffffff',
       textMuted: '#999999',
       text: '#646464',
       updatedAt: business.chatbotSettings?.theme?.updatedAt || new Date()
@@ -186,6 +184,28 @@ exports.updateBusinessTheme = async (req, res) => {
     res.json({ data: theme });
   } catch (error) {
     console.error('Error fetching theme:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+exports.resetBusinessTheme = async (req, res) => {
+  try {
+    const { businessId } = req.params;
+
+    let business = await Business.findByIdAndUpdate(
+      businessId,
+      { $unset: { "chatbotSettings.theme": "" } }, 
+      { new: true }
+    );
+
+    business = await business.save();
+
+    const theme = business.chatbotSettings.theme;
+    console.log(theme, 'theme');
+
+    res.json({ data: theme });
+  } catch (error) {
+    console.error('Error resetting theme:', error);
     res.status(500).json({ error: 'Server error' });
   }
 };

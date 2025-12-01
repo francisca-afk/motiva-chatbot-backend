@@ -79,9 +79,9 @@ router.get('/embed.js', (req, res) => {
                   iframe.style.background = 'transparent';
                   iframe.style.boxShadow = 'none';
                   iframe.style.borderRadius = '50%';
-                  iframe.overflow = 'hidden';
-                  iframe.overflowY = 'hidden';
-                  iframe.overflowX = 'hidden';
+                  iframe.style.overflow = 'hidden';
+                  iframe.style.overflowY = 'hidden';
+                  iframe.style.overflowX = 'hidden';
               }
           }
       });

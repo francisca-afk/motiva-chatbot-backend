@@ -96,6 +96,27 @@ function chatLiveHandler(io, socket) {
     socket.on('support_stopped_typing', ({ sessionId }) => {
       socket.to(sessionId).emit('support_stopped_typing', { sessionId });
     });
+
+    socket.on("visitor_typing", (data) => {
+      const room = `business_${data.businessId}_chat`;
+      io.to(room).emit('visitor_typing', {
+        sessionId: data.sessionId,
+        isUserTyping: data.isUserTyping
+      });
+    })
+
+    socket.on('human_agent_typing', (data) => { 
+      console.log(data, 'data from human_agent_typing');
+      const room = `business_${data.businessId}_chat`;
+      io.to(data.sessionId).emit('human_agent_typing', {
+        sessionId: data.sessionId,
+        isHumanAgentTyping: data.isHumanAgentTyping
+      });
+      io.to(room).emit('human_agent_typing', {
+        sessionId: data.sessionId,
+        isHumanAgentTyping: data.isHumanAgentTyping
+      });
+    })
   }
   
   module.exports = {

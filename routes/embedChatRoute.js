@@ -21,12 +21,6 @@ router.get('/embed.js', (req, res) => {
         return;
       }
 
-      const SIZES = {
-          closed: { width: '50px', height: '50px' },
-          open: { width: '380px', height: '600px' },
-          mobileOpen: { width: 'calc(100% - 40px)', height: '80dvh' }
-      };
-
       const iframe = document.createElement('iframe');
       iframe.src = '${widgetUrl}/?businessId=' + businessId;
 
@@ -36,43 +30,47 @@ router.get('/embed.js', (req, res) => {
           bottom: 20px;
           right: 20px;
           border: none;
+          width: 3.5rem; 
+          height: 3.5rem; 
           z-index: 2147483647;
           transition: width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease;
           border-radius: 50%;
           overflow: hidden !important;
       \`;
-        
-      iframe.style.width = SIZES.closed.width;
-      iframe.style.height = SIZES.closed.height;
-      iframe.style.boxShadow = 'none';  
+      
 
-      const isMobile = () => window.innerWidth < 640;
+      const isMobile = () => window.matchMedia("(max-width: 600px)").matches;
+
+      let isOpenState = false;
 
       window.addEventListener('message', (event) => {
           // if (event.origin !== '${widgetUrl}') return;
 
+          
           if (event.data && event.data.type === 'MOTIVA_WIDGET_RESIZE') {
               const isOpen = event.data.isOpen;
+              isOpenState = isOpen;
 
               if (isOpen) {
                   if (isMobile()) {
-                      iframe.style.width = SIZES.mobileOpen.width;
-                      iframe.style.height = SIZES.mobileOpen.height;
+                      iframe.style.width = "80vw";
+                      iframe.style.height = "90vh";
                       iframe.style.bottom = '0';
                       iframe.style.right = '0';
                       iframe.style.borderRadius = '20px';
+                      iframe.style.boxShadow = "0 0 20px rgba(0,0,0,0.25)";
                   } else {
                        // Desktop
-                      iframe.style.width = SIZES.open.width;
-                      iframe.style.height = SIZES.open.height;
-                      iframe.style.bottom = '20px';
-                      iframe.style.right = '20px';
+                      iframe.style.width = "min(90vw, clamp(320px, 45vw, 420px))";
+                      iframe.style.height = "min(95vh, clamp(480px, 70vh, 640px))";
+                      iframe.style.right = "1.5rem";
+                      iframe.style.bottom = "1.5rem";
                       iframe.style.borderRadius = '24px'; 
                       iframe.style.boxShadow = '0 12px 40px rgba(0,0,0,0.18)';
                   }
               } else {
-                  iframe.style.width = SIZES.closed.width;
-                  iframe.style.height = SIZES.closed.height;
+                  iframe.style.width = '50px';
+                  iframe.style.height = '50px';
                   iframe.style.bottom = '30px';
                   iframe.style.right = '30px';
                   iframe.style.borderRadius = '0';
@@ -84,6 +82,26 @@ router.get('/embed.js', (req, res) => {
                   iframe.style.overflowX = 'hidden';
               }
           }
+      });
+
+      // Close the widget if the user clicks outside of it
+      document.addEventListener("click", (e) => {
+        if (!isOpenState) return;
+
+        const rect = iframe.getBoundingClientRect();
+        const inside =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+
+        if (!inside) {
+          console.log('Closing the widget');
+          iframe.contentWindow.postMessage(
+            { type: "MOTIVA_FORCE_CLOSE" },
+            "*"
+          );
+        }
       });
 
       if (document.readyState === 'loading') {

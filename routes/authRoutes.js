@@ -152,4 +152,6 @@ router.post('/reset-password', authController.resetPassword);
  */
 router.get('/user-by-token', auth, authController.getUserByToken);
 
+router.get('/permissions', auth, authController.getPermissions);
+
 module.exports = router;

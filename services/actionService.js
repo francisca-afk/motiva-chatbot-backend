@@ -1,13 +1,5 @@
-const nodemailer = require('nodemailer');
 const Business = require('../models/Business');
-
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.SMTP_USER,     
-      pass: process.env.SMTP_PASS      
-    }
-  })
+const { sendEmail } = require('./emailService');
   
 exports.sendEscalationEmail = async (
     businessId,
@@ -34,7 +26,7 @@ exports.sendEscalationEmail = async (
         summary: 'User needs assistance'
       };
   
-      await transporter.sendMail({
+      await sendEmail({
         from: process.env.SMTP_FROM,
         to: recipientEmail,
         subject: `🚨 URGENT: Escalation Required - ${business.name}`,

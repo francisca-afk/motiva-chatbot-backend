@@ -4,9 +4,9 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SG_MAIL);
+const { PERMISSIONS, ROLES } = require('../config/roles');
 
 const createToken = (userId, impersonatedBy = null) => {
-  console.log(userId, impersonatedBy, "both params")
   return jwt.sign({ 
     userId,
     impersonatedBy 
@@ -26,7 +26,6 @@ const transporter = nodemailer.createTransport({
 
 exports.signup = async (req, res) => {
   try {
-    console.log(req.body, "req.body")
     
     const { password, email, firstName, lastName } = req.body;
 
@@ -76,14 +75,12 @@ exports.login = async (req, res) => {
 
     // Check password
     const isMatch = await user.comparePassword(password);
-    console.log(isMatch, 'is match')
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     // Generate token
     const token = createToken(user._id);
-    console.log(token, "token")
 
     res.json({
       token,
@@ -181,6 +178,23 @@ exports.getUserByToken = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: 'Error getting user by token',
+      error: error.message
+    });
+  }
+}
+
+exports.getPermissions = async (req, res) => {
+  try {
+    return res.status(200).json({
+      message: 'Permissions found',
+      data: {
+        permissions: PERMISSIONS,
+        roles: ROLES
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Error getting permissions',
       error: error.message
     });
   }

@@ -89,7 +89,8 @@ exports.login = async (req, res) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        business: user.business || null
+        business: user.business || null,
+        role: user.role || null
       }
     });
   } catch (error) {

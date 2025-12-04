@@ -5,13 +5,11 @@ const { sendEmail } = require('../services/emailService');
 const crypto = require('crypto');
 
 
-// 📌 Obtener usuarios + invitaciones de un Business
+// Get business users and invitations
 exports.getBusinessUsers = async (req, res) => {
   try {
     const { businessId } = req.params;
 
-    // 1. Validar que exista el negocio
-    console.log(businessId, "businessId")
     const business = await Business.findById(businessId).lean();
     if (!business) {
       return res.status(404).json({
@@ -19,13 +17,12 @@ exports.getBusinessUsers = async (req, res) => {
         data: null
       });
     }
-  console.log(business, "business")
-    // 2. Buscar usuarios activos de ese negocio
+
     const users = await User.find({ business: businessId })
       .select("firstName lastName email role createdAt")
       .lean();
 
-    // 3. Buscar invitaciones pendientes
+    // Find pending invitations
     const invitations = await Invitation.find({ businessId })
       .select("email role invitedAt expiresAt status")
       .lean();
@@ -54,11 +51,7 @@ exports.getBusinessUsers = async (req, res) => {
 };
 
 
-
-// 📌 Invitar usuario nuevo
 exports.inviteUser = async (req, res) => {
-  console.log(req.params, "req.params from inviteUser")
-  console.log(req.body, "req.body from inviteUser")
   try {
     const { businessId } = req.params;
     const { email, role } = req.body;
@@ -69,8 +62,6 @@ exports.inviteUser = async (req, res) => {
         data: null
       });
     }
-
-    // 1. Validar negocio
     const business = await Business.findById(businessId);
     if (!business) {
       return res.status(404).json({
@@ -78,8 +69,6 @@ exports.inviteUser = async (req, res) => {
         data: null
       });
     }
-    console.log(business, "business from inviteUser")
-    // 2. Validar que el usuario no exista ya en el negocio
     const existingUser = await User.findOne({ email, business: businessId });
     if (existingUser) {
       return res.status(400).json({
@@ -87,22 +76,20 @@ exports.inviteUser = async (req, res) => {
         data: null
       });
     }
-    console.log(existingUser, "existingUser from inviteUser")
-    // 3. Validar invitación previa
+    // Check if invitation already exists
     const existingInvite = await Invitation.findOne({
       email,
       businessId,
       status: "pending"
     });
-    console.log(existingInvite, "existingInvite from inviteUser")
+    // If invitation already exists, return error
     if (existingInvite) {
       return res.status(400).json({
         message: "Invitation already sent",
         data: null
       });
     }
-    console.log(req.user, "req.user from inviteUser")
-    // 4. Crear invitación
+    // Create invitation
     const invitation = await Invitation.create({
       businessId,
       email,
@@ -113,11 +100,10 @@ exports.inviteUser = async (req, res) => {
       token: crypto.randomBytes(32).toString("hex"),
       status: "pending"
     });
-    console.log(invitation, "invitation from inviteUser")
-    // 5. Mandar email
+    // Send email
     await sendEmail({ to: email, subject: "Invitation to join the business", 
-      html: `You are invited to join the business ${business.name}. Please click the link below to accept the invitation: <a href="${process.env.FRONTEND_URL}/accept-invitation?token=${invitation.token}&role=${role}">Accept Invitation</a>` });
-    console.log("email sent from inviteUser")
+      html: `You are invited to join the business ${business.name}. Please click the link below to accept the invitation: <a href="${process.env.DASHBOARD_URL}/accept-invitation?token=${invitation.token}&role=${role}">Accept Invitation</a>` });
+
     return res.status(201).json({
       message: "Invitation sent",
       data: invitation
@@ -133,14 +119,12 @@ exports.inviteUser = async (req, res) => {
 };
 
 
-
-// 📌 Actualizar rol de usuario
 exports.updateUserRole = async (req, res) => {
   try {
     const { businessId, userId } = req.params;
     const { role } = req.body;
 
-    const validRoles = ["owner", "admin", "agent"];
+    const validRoles = ["owner", "admin", "chatRep"];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         message: "Invalid role",
@@ -148,7 +132,7 @@ exports.updateUserRole = async (req, res) => {
       });
     }
 
-    // No te puedes cambiar tu propio rol
+    // If user is trying to change their own role, return error
     if (userId === req.user.userId) {
       return res.status(400).json({
         message: "You cannot change your own role",
@@ -182,8 +166,6 @@ exports.updateUserRole = async (req, res) => {
 };
 
 
-
-// 📌 Eliminar usuario del negocio
 exports.removeUser = async (req, res) => {
   try {
     const { businessId, userId } = req.params;
@@ -204,7 +186,6 @@ exports.removeUser = async (req, res) => {
     }
 
     user.business = null;
-    user.role = "agent"; // o default que quieras
     await user.save();
 
     return res.status(200).json({
@@ -222,8 +203,7 @@ exports.removeUser = async (req, res) => {
 };
 
 
-
-// 📌 Reenviar invitación
+// Resend invitation
 exports.resendInvitation = async (req, res) => {
   try {
     const { invitationId } = req.params;
@@ -257,7 +237,7 @@ exports.resendInvitation = async (req, res) => {
 
 
 
-// 📌 Cancelar invitación
+// Cancel invitation
 exports.cancelInvitation = async (req, res) => {
   try {
     const { invitationId } = req.params;
@@ -277,6 +257,106 @@ exports.cancelInvitation = async (req, res) => {
 
   } catch (error) {
     console.error("Error cancelling invitation:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// controllers/invitationController.js
+exports.acceptInvitation = async (req, res) => {
+  try {
+    const { token, firstName, lastName, password } = req.body;
+    console.log(req.body, "req.body from acceptInvitation")
+
+    const invitation = await Invitation.findOne({ token });
+
+    if (!invitation) {
+      return res.status(404).json({ message: "Invalid token" });
+    }
+
+    if (invitation.status !== "pending") {
+      return res.status(410).json({ message: "Invitation already used" });
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      return res.status(410).json({ message: "Invitation expired" });
+    }
+
+    // Create user
+    const user = await User.create({
+      email: invitation.email,
+      firstName,
+      lastName,
+      password,
+      business: invitation.businessId,
+      role: invitation.role
+    });
+
+    // Update invitation status
+    invitation.status = "accepted";
+    invitation.acceptedAt = new Date();
+    await invitation.save();
+
+    return res.status(201).json({
+      message: "Invitation accepted",
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.error("Error accepting invitation:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+exports.verifyInvitation = async (req, res) => {
+  try {
+    const { token } = req.body;
+    console.log(token, "token from verifyInvitation")
+    const invitation = await Invitation.findOne({ token });
+    console.log(invitation, "invitation from verifyInvitation")
+    if (!invitation) {
+      return res.status(404).json({
+        message: "Invalid invitation token",
+        status: "invalid"
+      });
+    }
+
+    if (invitation.status !== "pending") {
+      return res.status(410).json({
+        message: "Invitation already used",
+        status: "used"
+      });
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      return res.status(410).json({
+        message: "Invitation expired",
+        status: "expired"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Invitation valid",
+      status: "valid",
+      data: {
+        email: invitation.email,
+        businessId: invitation.businessId,
+        role: invitation.role,
+        businessName: invitation.businessName
+      }
+    });
+
+  } catch (error) {
+    console.error("Error verifying token:", error);
     return res.status(500).json({
       message: "Server error",
       error: error.message

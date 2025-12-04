@@ -3,7 +3,14 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const { hasPermission } = require("../middleware/permissions");
 const { PERMISSIONS } = require("../config/roles");
-const { getBusinessUsers, inviteUser, updateUserRole, removeUser, resendInvitation, cancelInvitation } = require("../controllers/businessUserController");
+const { getBusinessUsers, 
+    inviteUser, 
+    updateUserRole, 
+    removeUser, 
+    resendInvitation, 
+    cancelInvitation,
+    acceptInvitation,
+    verifyInvitation } = require("../controllers/businessUserController");
 
 
 // Users + invitations
@@ -53,5 +60,9 @@ router.delete(
   hasPermission(PERMISSIONS.MANAGE_USERS),
   cancelInvitation
 );
+
+router.post("/invite/accept", acceptInvitation);
+
+router.post("/invite/verify", verifyInvitation);
 
 module.exports = router;

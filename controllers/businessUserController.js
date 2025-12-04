@@ -21,6 +21,8 @@ exports.getBusinessUsers = async (req, res) => {
     const users = await User.find({ business: businessId })
       .select("firstName lastName email role createdAt")
       .lean();
+      
+    console.log(users, "users from getBusinessUsers")
 
     // Find pending invitations
     const invitations = await Invitation.find({ businessId })
@@ -296,7 +298,7 @@ exports.acceptInvitation = async (req, res) => {
     invitation.status = "accepted";
     invitation.acceptedAt = new Date();
     await invitation.save();
-    
+
     //sync user to business
     const business = await Business.findById(invitation.businessId);
     if (!business) {

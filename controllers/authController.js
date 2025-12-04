@@ -83,14 +83,7 @@ exports.login = async (req, res) => {
 
     res.json({
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        business: user.business || null,
-        role: user.role || null
-      }
+      user
     });
   } catch (error) {
     console.log(error, "error")

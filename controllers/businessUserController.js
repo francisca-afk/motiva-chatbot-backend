@@ -268,7 +268,6 @@ exports.cancelInvitation = async (req, res) => {
 exports.acceptInvitation = async (req, res) => {
   try {
     const { token, firstName, lastName, password } = req.body;
-    console.log(req.body, "req.body from acceptInvitation")
 
     const invitation = await Invitation.findOne({ token });
 
@@ -293,11 +292,25 @@ exports.acceptInvitation = async (req, res) => {
       business: invitation.businessId,
       role: invitation.role
     });
-
     // Update invitation status
     invitation.status = "accepted";
     invitation.acceptedAt = new Date();
     await invitation.save();
+    
+    //sync user to business
+    const business = await Business.findById(invitation.businessId);
+    if (!business) {
+      return res.status(404).json({
+        message: "Business not found",
+        data: null
+      });
+    }
+
+    // Ensure user is not already in business (avoid duplicates)
+    if (!business.users.includes(user._id)) {
+      business.users.push(user._id);
+      await business.save();
+    }
 
     return res.status(201).json({
       message: "Invitation accepted",

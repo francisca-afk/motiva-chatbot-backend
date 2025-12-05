@@ -69,7 +69,7 @@ router.get('/embed.js', (req, res) => {
                       iframe.style.right = "1.5rem";
                       iframe.style.bottom = "1.5rem";
                       iframe.style.borderRadius = '24px'; 
-                      iframe.style.boxShadow = '0 12px 40px rgba(0,0,0,0.18)';
+                      iframe.style.boxShadow = '0 12px 40px rgba(0,0,0,0.5)';
                   }
               } else {
                   iframe.style.width = '50px';

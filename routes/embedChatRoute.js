@@ -3,7 +3,6 @@ const router = express.Router();
 
 
 router.get('/embed.js', (req, res) => {
-  console.log('embed.js requested');
 
   const widgetUrl = process.env.WIDGET_URL;
 
@@ -39,6 +38,7 @@ router.get('/embed.js', (req, res) => {
           display: flex;
           align-items: center;
           justify-content: center;
+          color-scheme: light!important;
       \`;
       
 

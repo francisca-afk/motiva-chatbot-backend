@@ -36,6 +36,9 @@ router.get('/embed.js', (req, res) => {
           transition: width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease;
           border-radius: 50%;
           overflow: hidden !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
       \`;
       
 

@@ -51,12 +51,7 @@ exports.signup = async (req, res) => {
     res.status(201).json({
       message: 'User created successfully',
       token: authToken,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName
-      }
+      user
     });
   } catch (error) {
     res.status(500).json({ message: 'Error creating user', error: error.message });

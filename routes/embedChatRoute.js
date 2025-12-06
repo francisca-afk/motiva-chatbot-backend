@@ -42,7 +42,7 @@ router.get('/embed.js', (req, res) => {
       \`;
       
 
-      const isMobile = () => window.matchMedia("(max-width: 600px)").matches;
+      const isMobile = () => window.matchMedia("(max-width: 420px)").matches;
 
       let isOpenState = false;
 
@@ -56,8 +56,8 @@ router.get('/embed.js', (req, res) => {
 
               if (isOpen) {
                   if (isMobile()) {
-                      iframe.style.width = "80vw";
-                      iframe.style.height = "90vh";
+                      iframe.style.width = "90vw";
+                      iframe.style.height = "85vh";
                       iframe.style.bottom = '0';
                       iframe.style.right = '0';
                       iframe.style.borderRadius = '20px';
